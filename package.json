@@ -1,0 +1,30 @@
+{
+  "name": "pi-external-agent",
+  "version": "1.0.0",
+  "description": "pi extension: delegate tasks to pi, Claude Code, or Codex CLI as isolated background agents",
+  "keywords": ["pi-package", "pi-extension", "agent", "subagent", "delegation"],
+  "license": "MIT",
+  "author": "David Raistrick",
+  "homepage": "https://github.com/keen99/pi-external-agent",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/keen99/pi-external-agent.git"
+  },
+  "type": "module",
+  "main": "./index.ts",
+  "scripts": {
+    "clean": "echo 'nothing to clean'",
+    "build": "echo 'nothing to build'",
+    "check": "echo 'nothing to check'"
+  },
+  "pi": {
+    "extensions": ["./index.ts"]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-agent-core": "*",
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*",
+    "typebox": "*"
+  }
+}

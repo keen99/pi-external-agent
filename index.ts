@@ -699,7 +699,27 @@ export default function (pi: ExtensionAPI) {
 					output: "", stderr: "", usage: emptyUsage(), messages: [],
 				}));
 
+				const WIDGET_KEY = "external-agent-parallel";
+				const renderWidget = () => {
+					try {
+						const lines = allResults.map((r, i) => {
+							const taskPreview = (r.task || "").slice(0, 60).replace(/\n/g, " ");
+							let status: string;
+							if (r.exitCode === -1) status = "running";
+							else if (isFailed(r)) status = "failed";
+							else status = "done";
+							return `[${i + 1}/${allResults.length}] ${r.agent}: ${status} — ${taskPreview}`;
+						});
+						const done = allResults.filter(r => r.exitCode !== -1).length;
+						lines.push(`Parallel: ${done}/${allResults.length} done`);
+						ctx.ui?.setWidget?.(WIDGET_KEY, lines, { placement: "belowEditor" });
+					} catch {
+						/* widget best-effort */
+					}
+				};
+
 				const emitAll = () => {
+					renderWidget();
 					if (!onUpdate) return;
 					const done = allResults.filter(r => r.exitCode !== -1).length;
 					const running = allResults.filter(r => r.exitCode === -1).length;
@@ -728,6 +748,11 @@ export default function (pi: ExtensionAPI) {
 				});
 
 				const ok = results.filter(r => !isFailed(r)).length;
+				try {
+					ctx.ui?.setWidget?.(WIDGET_KEY, undefined);
+				} catch {
+					/* best-effort */
+				}
 				const summaries = results.map(r => {
 					const output = capOutput(getOutput(r));
 					const status = isFailed(r) ? "failed" : "completed";

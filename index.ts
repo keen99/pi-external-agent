@@ -15,7 +15,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 import { StringEnum } from "@earendil-works/pi-ai";
-import { type ExtensionAPI, getMarkdownTheme, withFileMutationQueue } from "@earendil-works/pi-coding-agent";
+import { type ExtensionAPI, getMarkdownTheme, withFileMutationQueue, findExactModelReferenceMatch } from "@earendil-works/pi-coding-agent";
 import { Container, Markdown, Spacer, Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 
@@ -516,10 +516,12 @@ async function runAgent(
 	signal: AbortSignal | undefined, onUpdate: OnUpdate | undefined,
 	makeDetails: (results: SingleResult[]) => ExtAgentDetails,
 	step?: number,
+	modelRegistry?: any,
 ): Promise<SingleResult> {
-	if (agent === "pi") return runPi(task, cwd, defaultCwd, systemPrompt, model, tools, signal, onUpdate, makeDetails, step);
-	if (agent === "claude") return runClaude(task, cwd, defaultCwd, systemPrompt, model, signal, onUpdate, makeDetails, step);
-	return runCodex(task, cwd, defaultCwd, model, signal, onUpdate, makeDetails, step);
+	const resolvedModel = agent === "pi" ? resolvePiModelSpec(modelRegistry, model) : model;
+	if (agent === "pi") return runPi(task, cwd, defaultCwd, systemPrompt, resolvedModel, tools, signal, onUpdate, makeDetails, step);
+	if (agent === "claude") return runClaude(task, cwd, defaultCwd, systemPrompt, resolvedModel, signal, onUpdate, makeDetails, step);
+	return runCodex(task, cwd, defaultCwd, resolvedModel, signal, onUpdate, makeDetails, step);
 }
 
 // ── schema ──
@@ -585,6 +587,28 @@ function renderItems(items: DisplayItem[], limit: number, theme: any): string {
 	return t.trimEnd();
 }
 
+// ── model resolution ──
+// Resolve a bare model id to a canonical provider/modelId spec using only
+// AUTHED models, so the spawned pi subprocess lands on an authed provider
+// directly — no reliance on pi-model-authguard (which --no-extensions skips).
+function resolvePiModelSpec(modelRegistry: any, model: string | undefined): string | undefined {
+	if (!model) return undefined;
+	// Already canonical (contains /)? Pass through after confirming auth.
+	if (model.includes("/")) {
+		const available = modelRegistry?.getAvailable?.() ?? [];
+		const match = available.find((m: any) => `${m.provider}/${m.id}`.toLowerCase() === model.toLowerCase());
+		if (match) return `${match.provider}/${match.id}`;
+		// Not authed or unknown — still pass through; subprocess will error clearly.
+		return model;
+	}
+	// Bare id: find exact match among authed models.
+	const available = modelRegistry?.getAvailable?.() ?? [];
+	const match = findExactModelReferenceMatch(model, available);
+	if (match) return `${match.provider}/${match.id}`;
+	// No authed exact match — fall back to bare id (subprocess behavior unchanged).
+	return model;
+}
+
 // ── extension ──
 
 export default function (pi: ExtensionAPI) {
@@ -640,7 +664,7 @@ export default function (pi: ExtensionAPI) {
 
 					const r = await runAgent(
 						step.agent, taskText, step.cwd, ctx.cwd, step.systemPrompt, step.model, step.tools,
-						signal, chainUpd, makeDetails("chain"), i + 1,
+						signal, chainUpd, makeDetails("chain"), i + 1, ctx.modelRegistry,
 					);
 					results.push(r);
 
@@ -695,6 +719,7 @@ export default function (pi: ExtensionAPI) {
 							}
 						},
 						makeDetails("parallel"),
+						idx, ctx.modelRegistry,
 					);
 					allResults[idx] = r;
 					emitAll();
@@ -718,7 +743,7 @@ export default function (pi: ExtensionAPI) {
 				const r = await runAgent(
 					params.agent, params.task, params.cwd, ctx.cwd,
 					params.systemPrompt, params.model, params.tools,
-					signal, onUpdate, makeDetails("single"),
+					signal, onUpdate, makeDetails("single"), undefined, ctx.modelRegistry,
 				);
 				if (isFailed(r)) {
 					return {

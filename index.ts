@@ -15,7 +15,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 import { StringEnum } from "@earendil-works/pi-ai";
-import { type ExtensionAPI, getMarkdownTheme, withFileMutationQueue, findExactModelReferenceMatch } from "@earendil-works/pi-coding-agent";
+import { type ExtensionAPI, getMarkdownTheme, withFileMutationQueue } from "@earendil-works/pi-coding-agent";
 import { Container, Markdown, Spacer, Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 
@@ -603,8 +603,9 @@ function resolvePiModelSpec(modelRegistry: any, model: string | undefined): stri
 	}
 	// Bare id: find exact match among authed models.
 	const available = modelRegistry?.getAvailable?.() ?? [];
-	const match = findExactModelReferenceMatch(model, available);
-	if (match) return `${match.provider}/${match.id}`;
+	const norm = model.toLowerCase();
+	const idMatches = available.filter((m: any) => m.id.toLowerCase() === norm);
+	if (idMatches.length === 1) return `${idMatches[0].provider}/${idMatches[0].id}`;
 	// No authed exact match — fall back to bare id (subprocess behavior unchanged).
 	return model;
 }

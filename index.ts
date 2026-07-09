@@ -23,6 +23,30 @@ const MAX_PARALLEL = 8;
 const MAX_CONCURRENCY = 4;
 const PER_TASK_CAP = 50 * 1024;
 
+// ── config ──
+// Read from ~/.pi/agent/settings.json under the "externalAgent" key:
+//   { "externalAgent": { "allow": ["pi","claude"], "deny": ["codex"] } }
+// allow = allowlist (if set, only these agents permitted)
+// deny  = denylist (always excluded; wins over allow)
+const SETTINGS_PATH = path.join(os.homedir(), ".pi", "agent", "settings.json");
+const ALL_AGENTS: AgentName[] = ["pi", "claude", "codex"];
+
+function readEnabledAgents(): Set<AgentName> {
+	let cfg: any = {};
+	try {
+		if (fs.existsSync(SETTINGS_PATH)) cfg = JSON.parse(fs.readFileSync(SETTINGS_PATH, "utf-8"));
+	} catch { /* ignore malformed */ }
+	const ext = cfg?.externalAgent || {};
+	const allow: string[] = Array.isArray(ext.allow) ? ext.allow : ALL_AGENTS;
+	const deny: string[] = Array.isArray(ext.deny) ? ext.deny : [];
+	const enabled = ALL_AGENTS.filter((a) => allow.includes(a) && !deny.includes(a));
+	return new Set(enabled.length ? enabled : ALL_AGENTS);
+}
+
+function disabledAgentError(disabled: AgentName): string {
+	return `Agent '${disabled}' is disabled in settings.json (externalAgent.allow/deny).`;
+}
+
 // ── types ──
 
 interface Usage {
@@ -645,6 +669,21 @@ export default function (pi: ExtensionAPI) {
 				return {
 					content: [{ type: "text", text: "Provide exactly one mode: {agent, task} or {tasks: [...]} or {chain: [...]}." }],
 					details: makeDetails("single")([]),
+				};
+			}
+
+			// ── agent allow/deny enforcement ──
+			const enabled = readEnabledAgents();
+			const requestedAgents: AgentName[] = [];
+			if (hasSingle && params.agent) requestedAgents.push(params.agent);
+			if (params.tasks) for (const t of params.tasks) requestedAgents.push(t.agent);
+			if (params.chain) for (const s of params.chain) requestedAgents.push(s.agent);
+			const disabled = requestedAgents.filter((a) => !enabled.has(a));
+			if (disabled.length) {
+				return {
+					content: [{ type: "text", text: disabledAgentError(disabled[0]) }],
+					details: makeDetails("single")([]),
+					isError: true,
 				};
 			}
 

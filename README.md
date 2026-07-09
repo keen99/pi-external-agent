@@ -29,6 +29,26 @@ A [pi](https://pi.dev) extension that adds an `external_agent` tool for delegati
 | `systemPrompt`| pi, claude        | Custom system prompt |
 | `tools`       | pi                | Tools to enable (comma list) |
 
+## Config
+
+Agent availability can be restricted in `~/.pi/agent/settings.json` under
+the `externalAgent` key:
+
+```json
+{
+  "externalAgent": {
+    "allow": ["pi", "claude"],
+    "deny": ["codex"]
+  }
+}
+```
+
+- `allow` — allowlist. If set, only these agents are permitted.
+- `deny` — denylist. Always excluded; wins over `allow`.
+
+If neither is set, all three agents (`pi`, `claude`, `codex`) are available.
+Disabled agents rejected at execution time with a clear error.
+
 ## Install
 
 ```bash

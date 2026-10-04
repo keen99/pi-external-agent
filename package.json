@@ -1,54 +1,42 @@
 {
   "name": "pi-external-agent",
-  "version": "1.0.0",
-  "description": "pi extension: delegate tasks to pi, Claude Code, or Codex CLI as isolated background agents",
-  "keywords": [
-    "pi-package",
-    "pi-extension",
-    "agent",
-    "subagent",
-    "delegation"
-  ],
-  "license": "MIT",
-  "author": "David Raistrick",
-  "homepage": "https://github.com/keen99/pi-external-agent",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/keen99/pi-external-agent.git"
-  },
+  "version": "0.1.0",
+  "description": "pi extension: delegate tasks to pi / Claude Code / Codex CLI as isolated background agents (single, parallel, chain)",
   "type": "module",
   "main": "./index.ts",
   "scripts": {
-    "clean": "echo 'nothing to clean'",
-    "build": "echo 'nothing to build'",
-    "check": "echo 'nothing to check'"
+    "typecheck": "tsc --noEmit",
+    "test": "npx --yes tsx@4.20.6 --test test/*.test.ts",
+    "check": "npm run typecheck && npm test",
+    "test:matrix": "node test/release-matrix.mjs"
   },
   "pi": {
     "extensions": [
       "./index.ts"
     ]
   },
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "agents",
+    "delegation"
+  ],
+  "license": "MIT",
+  "author": "David Raistrick",
+  "homepage": "https://github.com/keen99/pi-git-guard",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/keen99/pi-git-guard.git"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "0.75.4",
+    "typescript": "5.9.3"
+  },
   "peerDependencies": {
-    "@earendil-works/pi-agent-core": "*",
-    "@earendil-works/pi-ai": "*",
-    "@earendil-works/pi-coding-agent": "*",
-    "@earendil-works/pi-tui": "*",
-    "typebox": "*"
+    "@earendil-works/pi-coding-agent": "*"
   },
   "peerDependenciesMeta": {
-    "@earendil-works/pi-agent-core": {
-      "optional": true
-    },
-    "@earendil-works/pi-ai": {
-      "optional": true
-    },
     "@earendil-works/pi-coding-agent": {
-      "optional": true
-    },
-    "@earendil-works/pi-tui": {
-      "optional": true
-    },
-    "typebox": {
       "optional": true
     }
   }

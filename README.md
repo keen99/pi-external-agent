@@ -1,5 +1,8 @@
 # pi-external-agent
 
+![release-watch](https://github.com/keen99/pi-external-agent/actions/workflows/release-watch.yml/badge.svg)
+[![pi tested](https://img.shields.io/github/v/release/keen99/pi-external-agent?label=pi%20tested%200.75.0%20%E2%86%92)](https://github.com/keen99/pi-external-agent/releases)
+
 A [pi](https://pi.dev) extension that adds an `external_agent` tool for delegating tasks to other agent CLIs as isolated background processes.
 
 ## Agents
@@ -52,8 +55,35 @@ Disabled agents rejected at execution time with a clear error.
 ## Install
 
 ```bash
+# ssh
+pi install git:git@github.com:keen99/pi-external-agent
+
+# https
 pi install git:github.com/keen99/pi-external-agent
 ```
+
+## Development
+
+```sh
+npm run check       # typecheck + unit tests (real subprocess PATH shims, no network)
+npm run test:matrix # deep smoke on every published pi release >= 0.75.0
+```
+
+Unit tests drive the real tool via fake pi and REAL agent subprocesses:
+bash shims on PATH emit canned stream-json for pi/claude/codex and
+record argv, proving spawn, stream parsing, usage extraction, chain
+{previous} substitution, chain fail-fast, parallel counting, allow/deny
+enforcement, and model resolution — no network, no real CLIs. The
+matrix boots each pinned pi release in RPC mode with the extension
+loaded and asserts tool registration + settings-derived enabled set on
+the real process. Cached installs live in `.matrix-cache/` and are
+reused across runs; new pi releases are picked up automatically.
+
+`EXTERNAL_AGENT_SETTINGS` overrides the settings path (tests are
+hermetic — never reads your real settings.json), `EXTERNAL_AGENT_PI_BIN`
+overrides the pi binary the runner spawns, `EXTERNAL_AGENT_DEBUG=1`
+writes a load marker for the smoke, `PI_TEST_BIN` overrides the pi
+binary in the matrix smoke.
 
 ## License
 

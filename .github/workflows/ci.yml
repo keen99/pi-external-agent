@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Sync tested tags creates/deletes releases via GITHUB_TOKEN — repo default is read-only.
+permissions:
+  contents: write
+
+jobs:
+  check:
+    name: Typecheck + unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+
+  matrix:
+    name: Release matrix smoke (0.75.0 → latest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Incremental version cache: restore the newest saved .matrix-cache,
+      # save an updated one under this run's key on success. Installs only
+      # releases published since the last green run.
+      - uses: actions/cache@v4
+        with:
+          path: .matrix-cache
+          key: pi-matrix-${{ github.run_id }}
+          restore-keys: |
+            pi-matrix-
+      - run: npm run test:matrix
+      - name: Sync tested tags
+        if: always() && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: node test/sync-tested-tags.mjs

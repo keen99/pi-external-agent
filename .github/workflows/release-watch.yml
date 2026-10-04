@@ -1,0 +1,70 @@
+name: release-watch
+
+# Daily check: skip within seconds when no new pi release; run the full
+# release matrix when one exists. Failures email the repo owner via
+# GitHub's scheduled-workflow failure notifications.
+on:
+  schedule:
+    - cron: "23 15 * * *" # 15:23 UTC daily, off the top-of-hour crunch
+  workflow_dispatch:
+
+concurrency:
+  group: release-watch
+  cancel-in-progress: false
+
+# Publish step bot-commits latest-tested.json to main. Repo default token
+# perms are read-only; without this the push exits 128.
+permissions:
+  contents: write
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: actions/cache@v4
+        with:
+          path: .matrix-cache
+          key: pi-matrix-${{ github.run_id }}
+          restore-keys: |
+            pi-matrix-
+      - name: Skip unless a new release exists
+        id: check
+        run: |
+          LATEST=$(node --input-type=module -e "console.log((await (await fetch('https://registry.npmjs.org/@earendil-works%2fpi-coding-agent')).json())['dist-tags'].latest)")
+          MARKER=.matrix-cache/.latest-tested
+          TESTED=$(cat "$MARKER" 2>/dev/null || echo none)
+          echo "latest=$LATEST" >> "$GITHUB_OUTPUT"
+          echo "latest=$LATEST tested=$TESTED"
+          if [ "$LATEST" = "$TESTED" ]; then
+            echo "No new release since last green run ($TESTED). Wake-quit."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Release matrix smoke
+        if: steps.check.outputs.skip != 'true'
+        run: npm run test:matrix
+        # Matrix script writes latest-tested.json (range badge) and the
+        # .latest-tested skip-marker itself, only on a fully green run.
+      - name: Sync tested tags
+        if: always() && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: node test/sync-tested-tags.mjs
+      - name: Summarize
+        if: always()
+        run: |
+          {
+            echo "### Release watch"
+            echo "- Latest pi: \`${{ steps.check.outputs.latest }}\`"
+            echo "- Tested marker: \`$(cat .matrix-cache/.latest-tested 2>/dev/null || echo none)\`"
+            echo "- Outcome: ${{ job.status }}"
+          } >> "$GITHUB_STEP_SUMMARY"

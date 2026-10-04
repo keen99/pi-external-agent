@@ -15,7 +15,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 import { StringEnum } from "@earendil-works/pi-ai";
-import { type ExtensionAPI, getMarkdownTheme, withFileMutationQueue } from "@earendil-works/pi-coding-agent";
+import { type ExtensionAPI, getAgentDir, getMarkdownTheme, withFileMutationQueue } from "@earendil-works/pi-coding-agent";
 import { Container, Markdown, Spacer, Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 
@@ -28,13 +28,19 @@ const PER_TASK_CAP = 50 * 1024;
 //   { "externalAgent": { "allow": ["pi","claude"], "deny": ["codex"] } }
 // allow = allowlist (if set, only these agents permitted)
 // deny  = denylist (always excluded; wins over allow)
-const SETTINGS_PATH = path.join(os.homedir(), ".pi", "agent", "settings.json");
+// Path resolved per-call so EXTERNAL_AGENT_SETTINGS can override it in tests.
+function settingsPath(): string {
+	return process.env.EXTERNAL_AGENT_SETTINGS
+		? path.resolve(process.env.EXTERNAL_AGENT_SETTINGS)
+		: path.join(os.homedir(), ".pi", "agent", "settings.json");
+}
 const ALL_AGENTS: AgentName[] = ["pi", "claude", "codex"];
 
 function readEnabledAgents(): Set<AgentName> {
 	let cfg: any = {};
 	try {
-		if (fs.existsSync(SETTINGS_PATH)) cfg = JSON.parse(fs.readFileSync(SETTINGS_PATH, "utf-8"));
+		const p = settingsPath();
+		if (fs.existsSync(p)) cfg = JSON.parse(fs.readFileSync(p, "utf-8"));
 	} catch { /* ignore malformed */ }
 	const ext = cfg?.externalAgent || {};
 	const allow: string[] = Array.isArray(ext.allow) ? ext.allow : ALL_AGENTS;
@@ -154,6 +160,9 @@ async function writePromptToTemp(prefix: string, content: string): Promise<{ dir
 }
 
 function getPiBin(): { command: string; args: string[] } {
+	if (process.env.EXTERNAL_AGENT_PI_BIN) {
+		return { command: process.env.EXTERNAL_AGENT_PI_BIN, args: [] };
+	}
 	const currentScript = process.argv[1];
 	const isBunVirtual = currentScript?.startsWith("/$bunfs/root/");
 	if (currentScript && !isBunVirtual && fs.existsSync(currentScript)) {
@@ -637,6 +646,13 @@ function resolvePiModelSpec(modelRegistry: any, model: string | undefined): stri
 // ── extension ──
 
 export default function (pi: ExtensionAPI) {
+	if (process.env.EXTERNAL_AGENT_DEBUG === "1") {
+		try {
+			const enabled = [...readEnabledAgents()];
+			fs.writeFileSync(path.join(getAgentDir(), "external-agent-loaded.json"), JSON.stringify({ loaded: true, tool: "external_agent", enabled }) + "\n");
+		} catch { /* debug marker best-effort */ }
+	}
+
 	pi.registerTool({
 		name: "external_agent",
 		label: "External Agent",

@@ -30,7 +30,11 @@
   },
   "devDependencies": {
     "@earendil-works/pi-coding-agent": "0.75.4",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "@earendil-works/pi-agent-core": "^0.75.4",
+    "@earendil-works/pi-ai": "^0.75.4",
+    "@earendil-works/pi-tui": "^0.75.4",
+    "typebox": "1.1.38"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*"

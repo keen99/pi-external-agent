@@ -28,7 +28,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - uses: actions/cache@v4
+      - uses: actions/cache/restore@v4
         with:
           path: .matrix-cache
           key: pi-matrix-${{ github.run_id }}

@@ -42,13 +42,19 @@ jobs:
       # Incremental version cache: restore the newest saved .matrix-cache,
       # save an updated one under this run's key on success. Installs only
       # releases published since the last green run.
-      - uses: actions/cache@v4
+      - uses: actions/cache/restore@v4
         with:
           path: .matrix-cache
           key: pi-matrix-${{ github.run_id }}
           restore-keys: |
             pi-matrix-
       - run: npm run test:matrix
+      - name: Save matrix cache (always — installs must survive red runs)
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .matrix-cache
+          key: pi-matrix-${{ github.run_id }}
       - name: Sync tested tags
         if: always() && github.ref == 'refs/heads/main'
         env:

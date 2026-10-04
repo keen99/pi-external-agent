@@ -53,6 +53,14 @@ jobs:
         run: npm run test:matrix
         # Matrix script writes latest-tested.json (range badge) and the
         # .latest-tested skip-marker itself, only on a fully green run.
+      - name: Save matrix cache (always — installs must survive red runs)
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .matrix-cache
+          key: pi-matrix-${{ github.run_id }}
+        # Matrix script writes latest-tested.json (range badge) and the
+        # .latest-tested skip-marker itself, only on a fully green run.
       - name: Sync tested tags
         if: always() && github.ref == 'refs/heads/main'
         env:

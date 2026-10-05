@@ -5,7 +5,7 @@ name: release-watch
 # GitHub's scheduled-workflow failure notifications.
 on:
   schedule:
-    - cron: "23 15 * * *" # 15:23 UTC daily, off the top-of-hour crunch
+    - cron: "17 11 * * *" # 15:23 UTC daily, off the top-of-hour crunch
   workflow_dispatch:
 
 concurrency:

@@ -5,7 +5,10 @@ name: release-watch
 # GitHub's scheduled-workflow failure notifications.
 on:
   schedule:
-    - cron: "12 * * * *" # 15:23 UTC daily, off the top-of-hour crunch
+    # GitHub throttles scheduled workflows hard: observed ~3 fires/day at
+    # ~7-8h spacing regardless of cadence (daily/hourly/every-minute all
+    # collapse to this). Hourly slot maximizes chances; sync is idempotent.
+    - cron: "12 * * * *"  # this repo's staggered slot (alphabetical order)
   workflow_dispatch:
 
 concurrency:

@@ -42,13 +42,31 @@ const exists = (tag) => existing.has(tag);
 
 let created = 0;
 let deleted = 0;
+function releaseForTag(tag) {
+	try {
+		gh(['api', `repos/${repo}/releases/tags/${tag}`, '--jq', '.id']);
+		return true;
+	} catch {
+		return false;
+	}
+}
 for (const { version, ok } of results) {
 	const have = exists(version);
 	if (ok && !have) {
 		console.log(`create pi-tested release ${version}`);
 		created++;
 		if (!dry) {
-			gh(['release', 'create', version, '--repo', repo, '--title', `pi tested 0.75.0 → ${version}`, '--notes', `Release matrix green through pi 0.75.0 → ${version} (${results.length} releases tested)`]);
+			try {
+				gh(['release', 'create', version, '--repo', repo, '--title', `pi tested 0.75.0 → ${version}`, '--notes', `Release matrix green through pi 0.75.0 → ${version} (${results.length} releases tested)`]);
+			} catch (e) {
+				// Tag can outlive a deleted release (deletion race) — GitHub then
+				// 422s with "tag_name already exists". If the release now exists,
+				// that's success; if only the orphan tag remains, drop it and retry.
+				if (!String(e).includes('already exists') || !releaseForTag(version)) {
+					try { gh(['api', '-X', 'DELETE', `repos/${repo}/git/refs/tags/${version}`]); } catch { /* nothing to clean */ }
+					gh(['release', 'create', version, '--repo', repo, '--title', `pi tested 0.75.0 → ${version}`, '--notes', `Release matrix green through pi 0.75.0 → ${version} (${results.length} releases tested)`]);
+				}
+			}
 			existing.add(version);
 		}
 	} else if (!ok && have) {

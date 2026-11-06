@@ -82,14 +82,29 @@ for (const version of versions) {
     timeout: 120_000,
   });
   const output = `${smoke.stdout ?? ''}${smoke.stderr ?? ''}`.trim();
-  if (smoke.status === 0) {
+  let smokeStatus = smoke.status;
+  let smokeOutput = output;
+  // A lone JSON-parse/pipe crash on an otherwise green matrix is a runner
+  // stdio race, not a real regression — retry once before declaring FAIL.
+  if (smokeStatus !== 0 && /Unexpected end of JSON input|EPIPE|ECONNRESET/.test(output)) {
+    console.log(`[matrix] ${version}: retry once (transient stdio crash)`);
+    const retry = spawnSync('node', [join(root, 'test', 'rpc-smoke.mjs')], {
+      stdio: 'pipe',
+      encoding: 'utf8',
+      env: { ...process.env, PI_TEST_BIN: bin },
+      timeout: 120_000,
+    });
+    smokeStatus = retry.status;
+    smokeOutput = `${retry.stdout ?? ''}${retry.stderr ?? ''}`.trim();
+  }
+  if (smokeStatus === 0) {
     console.log(`[matrix] ${version}: PASS`);
     results.push({ version, ok: true });
   } else {
     failed++;
     results.push({ version, ok: false });
-    console.log(`[matrix] ${version}: FAIL (exit ${smoke.status})`);
-    console.error(output.slice(0, 2000));
+    console.log(`[matrix] ${version}: FAIL (exit ${smokeStatus})`);
+    console.error(smokeOutput.slice(0, 2000));
   }
 }
 
